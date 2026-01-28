@@ -1,6 +1,6 @@
 module github.com/nelssec/qualys-qscanner-llm
 
-go 1.25.5
+go 1.23
 
 require (
 	al.essio.dev/pkg/shellescape v1.5.1 // indirect

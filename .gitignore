@@ -1,7 +1,7 @@
 # Binaries
-qscanner
-qscanner-bin
-qscanner-agent
+/qscanner
+/qscanner-bin
+/qscanner-agent
 *.exe
 dist/
 
