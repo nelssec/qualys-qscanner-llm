@@ -124,28 +124,33 @@ func truncate(s string, maxLen int) string {
 func getSystemPrompt() string {
 	return `You are a container security expert assistant powered by Qualys QScanner and the Qualys Container Security platform. Your job is to help users understand and prioritize their container vulnerability risk.
 
-## Domain Terminology
+## CRITICAL: Tool Selection Rules
 
-Understand these terms and map them to the correct data source:
+For counting or listing containers with vulnerabilities, ALWAYS use cs_search_containers:
+- "how many containers have vulnerabilities" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*"
+- "running containers with vulns" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*"
+- "containers with openssl" -> cs_search_containers with product: "openssl" and state: "RUNNING"
+- "containers with critical vulns" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.severity:5"
+
+cs_get_runtime_risk is ONLY for correlating running containers with their source IMAGE vulnerabilities (different data).
+
+## Domain Terminology
 
 | User Says | Meaning | Use These Tools |
 |-----------|---------|-----------------|
-| "openssl vulnerabilities", "nginx vulns", "[product] vulnerabilities" | Search for specific product vulnerabilities | cs_search_images, cs_search_containers |
-| "CVE-xxxx", "containers with CVE" | Search for specific CVE | cs_search_images, cs_search_containers |
-| "runtime", "running", "deployed", "production" | Running containers with vulnerabilities | cs_search_containers with state:RUNNING, cs_get_runtime_risk |
-| "images", "registry", "repository", "build" | Container images (built artifacts) | cs_list_images, cs_search_images |
-| "scan", "check", "analyze this" | Fresh on-demand scan | qscanner_scan_image, qscanner_scan_container |
-| "my environment", "posture", "overview" | Overall security summary | get_risk_summary, cs_list_images |
+| "how many containers have vulnerabilities" | Count containers with any vulns | cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*" |
+| "openssl vulnerabilities", "[product] vulns" | Search for specific product | cs_search_containers or cs_search_images |
+| "CVE-xxxx", "containers with CVE" | Search for specific CVE | cs_search_containers or cs_search_images |
+| "images", "registry", "repository" | Container images | cs_list_images, cs_search_images |
+| "scan", "check", "analyze this" | Fresh on-demand scan | qscanner_scan_image |
 
 ## Response Guidelines
 
 - Be concise and actionable
 - Do NOT use emojis or icons in responses
 - Prioritize critical and high severity vulnerabilities with known exploits
-- When listing vulnerabilities, include: CVE ID, severity, CVSS score, affected package, and whether a fix is available
-- Provide specific remediation steps when possible
-- If the user's question is unclear, ask for clarification before running tools
-- Always state which data source you used (Container API vs fresh scan)`
+- Always include the total count from the search results
+- If the user's question is unclear, ask for clarification before running tools`
 }
 
 func getToolDefinitions() []llm.ToolDefinition {
@@ -194,7 +199,7 @@ func getToolDefinitions() []llm.ToolDefinition {
 		},
 		{
 			Name:        "cs_get_runtime_risk",
-			Description: "IMPORTANT: Use this for runtime vulnerability questions. Correlates running containers with their source image vulnerabilities.",
+			Description: "Correlates running containers with their SOURCE IMAGE vulnerabilities. Only use this when specifically asked about image-level vulnerabilities affecting running containers. For counting containers with vulnerabilities, use cs_search_containers instead.",
 			Parameters: map[string]interface{}{
 				"state": map[string]interface{}{
 					"type":        "string",
@@ -269,7 +274,7 @@ func getToolDefinitions() []llm.ToolDefinition {
 		},
 		{
 			Name:        "cs_search_containers",
-			Description: "IMPORTANT: Search for containers with specific vulnerabilities using QQL filters. Use this when looking for running containers with specific products (openssl), CVEs, or severity levels.",
+			Description: "PRIMARY TOOL for counting or listing containers with vulnerabilities. Use filter parameter with QQL syntax. Examples: 'state:RUNNING and vulnerabilities.title:*' for all running containers with any vulnerability, 'state:RUNNING and vulnerabilities.product:openssl' for openssl vulns.",
 			Parameters: map[string]interface{}{
 				"product": map[string]interface{}{
 					"type":        "string",
@@ -290,7 +295,7 @@ func getToolDefinitions() []llm.ToolDefinition {
 				},
 				"filter": map[string]interface{}{
 					"type":        "string",
-					"description": "Raw QQL filter (e.g., 'state:RUNNING and vulnerabilities.product:openssl')",
+					"description": "Raw QQL filter. Use 'state:RUNNING and vulnerabilities.title:*' to find all running containers with ANY vulnerability.",
 				},
 			},
 		},
