@@ -126,31 +126,33 @@ func getSystemPrompt() string {
 
 ## CRITICAL: Tool Selection Rules
 
-For counting or listing containers with vulnerabilities, ALWAYS use cs_search_containers:
+For IMAGES queries, use cs_search_images:
+- "vulnerable images in use" -> cs_search_images with filter: "imagesInUse:[now-1d ... now] and vulnerabilities.title:*"
+- "images with vulnerabilities" -> cs_search_images with filter: "vulnerabilities.title:*"
+- "images with openssl" -> cs_search_images with product: "openssl"
+
+For CONTAINERS queries, use cs_search_containers:
 - "how many containers have vulnerabilities" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*"
 - "running containers with vulns" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*"
 - "containers with openssl" -> cs_search_containers with product: "openssl" and state: "RUNNING"
-- "containers with critical vulns" -> cs_search_containers with filter: "state:RUNNING and vulnerabilities.severity:5"
 
-cs_get_runtime_risk is ONLY for correlating running containers with their source IMAGE vulnerabilities (different data).
+NEVER use cs_get_runtime_risk for counting - it shows different data.
 
 ## Domain Terminology
 
-| User Says | Meaning | Use These Tools |
-|-----------|---------|-----------------|
-| "how many containers have vulnerabilities" | Count containers with any vulns | cs_search_containers with filter: "state:RUNNING and vulnerabilities.title:*" |
-| "openssl vulnerabilities", "[product] vulns" | Search for specific product | cs_search_containers or cs_search_images |
-| "CVE-xxxx", "containers with CVE" | Search for specific CVE | cs_search_containers or cs_search_images |
-| "images", "registry", "repository" | Container images | cs_list_images, cs_search_images |
-| "scan", "check", "analyze this" | Fresh on-demand scan | qscanner_scan_image |
+| User Says | Use This Tool | Filter |
+|-----------|---------------|--------|
+| "images in use", "vulnerable images in use" | cs_search_images | imagesInUse:[now-1d ... now] and vulnerabilities.title:* |
+| "containers with vulnerabilities" | cs_search_containers | state:RUNNING and vulnerabilities.title:* |
+| "[product] vulnerabilities in images" | cs_search_images | vulnerabilities.product:[product] |
+| "[product] vulnerabilities in containers" | cs_search_containers | state:RUNNING and vulnerabilities.product:[product] |
 
 ## Response Guidelines
 
 - Be concise and actionable
 - Do NOT use emojis or icons in responses
-- Prioritize critical and high severity vulnerabilities with known exploits
 - Always include the total count from the search results
-- If the user's question is unclear, ask for clarification before running tools`
+- Report exactly what the API returns`
 }
 
 func getToolDefinitions() []llm.ToolDefinition {
@@ -252,7 +254,7 @@ func getToolDefinitions() []llm.ToolDefinition {
 		},
 		{
 			Name:        "cs_search_images",
-			Description: "IMPORTANT: Search for images with specific vulnerabilities using QQL filters. Use this when looking for images with specific products (openssl, nginx), CVEs, or severity levels.",
+			Description: "PRIMARY TOOL for counting or listing images with vulnerabilities. Use for 'images in use' or 'vulnerable images' queries. Example filters: 'imagesInUse:[now-1d ... now] and vulnerabilities.title:*' for images in use with vulns, 'vulnerabilities.product:openssl' for openssl vulns.",
 			Parameters: map[string]interface{}{
 				"product": map[string]interface{}{
 					"type":        "string",
@@ -268,7 +270,7 @@ func getToolDefinitions() []llm.ToolDefinition {
 				},
 				"filter": map[string]interface{}{
 					"type":        "string",
-					"description": "Raw QQL filter string for advanced queries (e.g., 'vulnerabilities.product:openssl and vulnerabilities.severity:5')",
+					"description": "Raw QQL filter. Use 'imagesInUse:[now-1d ... now] and vulnerabilities.title:*' for images in use with any vulnerability.",
 				},
 			},
 		},
